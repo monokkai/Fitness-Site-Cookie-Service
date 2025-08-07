@@ -1,12 +1,34 @@
 import { Controller, Post, Req, HttpCode, Res, Body } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { CookieService } from './cookie.service';
 
 interface CustomRequest extends Request {
     id?: string;
 }
 
+interface CookieData {
+    country?: string;
+    language?: string;
+    userAgent?: string;
+    platform?: string;
+    timezone?: string;
+    timezoneOffset?: number;
+    localTime?: string;
+    referer?: string;
+    screenResolution?: string;
+    viewportSize?: string;
+    deviceType?: string;
+    cookieEnabled?: boolean;
+    online?: boolean;
+    languagePreferences?: string[];
+    connectionType?: string;
+    token?: string;
+}
+
 @Controller('cookie')
 export class CookieController {
+    constructor(private readonly cookieService: CookieService) { }
+
     @Post('client-data')
     @HttpCode(200)
     collectClientData(@Req() req: CustomRequest) {
@@ -54,12 +76,12 @@ export class CookieController {
             meta: {
                 referrer: referrer,
                 requestId: req.id,
-            }
+            },
         };
 
         return {
             success: true,
-            data: clientData
+            data: clientData,
         };
     }
 
@@ -90,13 +112,19 @@ export class CookieController {
     }
 
     private isBot(ua?: string): boolean {
-        return !!ua && (/bot|spider|crawl|slurp|search/i.test(ua));
+        return !!ua && /bot|spider|crawl|slurp|search/i.test(ua);
     }
 
     @Post('set')
     @HttpCode(200)
-    setCookie(@Res({ passthrough: true }) res: Response, @Body() body: any) {
-        const value = body?.value || 'default_token_value';
+    setCookie(
+        @Res({ passthrough: true }) res: Response,
+        @Body() body: CookieData,
+        @Req() req: Request,
+    ) {
+        console.log('Received cookie set request with body:', body);
+
+        const value = body?.token || 'default_' + Math.random().toString(36).substring(2);
 
         res.cookie('session_token', value, {
             httpOnly: true,
@@ -104,15 +132,72 @@ export class CookieController {
             sameSite: 'lax',
             path: '/',
             maxAge: 1000 * 60 * 60 * 24 * 7,
+            domain: 'localhost',
         });
 
-        return { message: 'Cookie set successfully' };
+        const cookieOptions = {
+            httpOnly: false,
+            secure: false,
+            sameSite: 'lax' as const,
+            path: '/',
+            maxAge: 1000 * 60 * 60 * 24 * 7,
+            domain: 'localhost',
+        };
+
+        if (body.country) res.cookie('country', body.country, cookieOptions);
+        if (body.language) res.cookie('language', body.language, cookieOptions);
+        if (body.userAgent) res.cookie('userAgent', body.userAgent, cookieOptions);
+        if (body.platform) res.cookie('platform', body.platform, cookieOptions);
+        if (body.timezone) res.cookie('timezone', body.timezone, cookieOptions);
+        if (body.timezoneOffset)
+            res.cookie('timezoneOffset', body.timezoneOffset.toString(), cookieOptions);
+        if (body.localTime) res.cookie('localTime', body.localTime, cookieOptions);
+        if (body.referer) res.cookie('referer', body.referer, cookieOptions);
+        if (body.screenResolution)
+            res.cookie('screenResolution', body.screenResolution, cookieOptions);
+        if (body.viewportSize) res.cookie('viewportSize', body.viewportSize, cookieOptions);
+        if (body.deviceType) res.cookie('deviceType', body.deviceType, cookieOptions);
+        if (body.cookieEnabled !== undefined)
+            res.cookie('cookieEnabled', body.cookieEnabled.toString(), cookieOptions);
+        if (body.online !== undefined) res.cookie('online', body.online.toString(), cookieOptions);
+        if (body.languagePreferences)
+            res.cookie('languagePreferences', JSON.stringify(body.languagePreferences), cookieOptions);
+        if (body.connectionType)
+            res.cookie('connectionType', body.connectionType, cookieOptions);
+
+        this.cookieService.storeClientMetrics({
+            ...body,
+            ip: req.ip,
+            userAgent: req.headers['user-agent'],
+        });
+
+        return {
+            status: 'success',
+            message: 'Cookies set successfully',
+            cookieValue: value,
+        };
     }
 
     @Post('clear')
     @HttpCode(200)
     clearCookie(@Res({ passthrough: true }) res: Response) {
-        res.clearCookie('session_token', { path: '/' });
-        return { message: 'Cookie cleared' };
+        res.clearCookie('session_token', { path: '/', domain: 'localhost' });
+        res.clearCookie('country', { path: '/', domain: 'localhost' });
+        res.clearCookie('language', { path: '/', domain: 'localhost' });
+        res.clearCookie('userAgent', { path: '/', domain: 'localhost' });
+        res.clearCookie('platform', { path: '/', domain: 'localhost' });
+        res.clearCookie('timezone', { path: '/', domain: 'localhost' });
+        res.clearCookie('timezoneOffset', { path: '/', domain: 'localhost' });
+        res.clearCookie('localTime', { path: '/', domain: 'localhost' });
+        res.clearCookie('referer', { path: '/', domain: 'localhost' });
+        res.clearCookie('screenResolution', { path: '/', domain: 'localhost' });
+        res.clearCookie('viewportSize', { path: '/', domain: 'localhost' });
+        res.clearCookie('deviceType', { path: '/', domain: 'localhost' });
+        res.clearCookie('cookieEnabled', { path: '/', domain: 'localhost' });
+        res.clearCookie('online', { path: '/', domain: 'localhost' });
+        res.clearCookie('languagePreferences', { path: '/', domain: 'localhost' });
+        res.clearCookie('connectionType', { path: '/', domain: 'localhost' });
+
+        return { message: 'Cookies cleared' };
     }
 }
