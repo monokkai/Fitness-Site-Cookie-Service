@@ -1,16 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import CreateCookieDto from './dto/create-cookie.dto';
 
 @Injectable()
 export class CookieService {
-    private storage: CreateCookieDto[] = [];
+    private metricsStorage: any[] = [];
 
-    create(data: CreateCookieDto): { status: string; storedRecords: number } {
-        this.storage.push(data);
-        return { status: 'success', storedRecords: this.storage.length };
+    storeClientMetrics(data: any): { status: string } {
+        this.metricsStorage.push(data);
+        return { status: 'success' };
     }
 
-    findAll(): CreateCookieDto[] {
-        return this.storage;
+    getMetrics(): any[] {
+        return this.metricsStorage;
     }
 }
